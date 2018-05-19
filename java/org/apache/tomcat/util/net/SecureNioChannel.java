@@ -148,6 +148,11 @@ public class SecureNioChannel extends NioChannel  {
         }
     }
 
+    @Override
+    public ByteBuffer getProxyProtocolBuffer() {
+        return netInBuffer;
+    }
+
     /**
      * Performs SSL handshake, non blocking, but performs NEED_TASK on the same
      * thread. Hence, you should never call this method using your Acceptor
@@ -454,15 +459,19 @@ public class SecureNioChannel extends NioChannel  {
      * @throws IOException An IO error occurred
      */
     protected SSLEngineResult handshakeUnwrap(boolean doread) throws IOException {
-
-        if (netInBuffer.position() == netInBuffer.limit()) {
-            //clear the buffer if we have emptied it out on data
-            netInBuffer.clear();
-        }
-        if ( doread )  {
-            //if we have data to read, read it
-            int read = sc.read(netInBuffer);
-            if (read == -1) throw new IOException(sm.getString("channel.nio.ssl.eofDuringHandshake"));
+        // If we read the first packet of bytes when parsing the PROXY protocol header, do not attempt to read more.
+        if (proxyProtocol != null && proxyProtocol.getReadFromSocket()) {
+            proxyProtocol.setReadFromSocket(false);
+        } else {
+            if (netInBuffer.position() == netInBuffer.limit()) {
+                //clear the buffer if we have emptied it out on data
+                netInBuffer.clear();
+            }
+            if ( doread )  {
+                //if we have data to read, read it
+                int read = sc.read(netInBuffer);
+                if (read == -1) throw new IOException(sm.getString("channel.nio.ssl.eofDuringHandshake"));
+            }
         }
         SSLEngineResult result;
         boolean cont = false;

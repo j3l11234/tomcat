@@ -172,6 +172,17 @@ public class NioEndpoint extends AbstractJsseEndpoint<NioChannel,SocketChannel> 
     }
 
 
+    // Optionally read coyoteProxyProtocol so that we can pass its value in through maven cargo
+    private NioProxyProtocol.ConfigEnum proxyProtocol = NioProxyProtocol.ConfigEnum.fromValue(System.getProperty("coyoteProxyProtocol", NioProxyProtocol.ConfigEnum.OFF.value()));
+
+    public NioProxyProtocol.ConfigEnum getProxyProtocol() {
+        return proxyProtocol;
+    }
+
+    public void setProxyProtocol(String proxyProtocol) {
+        this.proxyProtocol = NioProxyProtocol.ConfigEnum.fromValue(proxyProtocol);
+    }
+    
     // --------------------------------------------------------- Public Methods
     /**
      * Number of keep-alive sockets.
@@ -1348,6 +1359,9 @@ public class NioEndpoint extends AbstractJsseEndpoint<NioChannel,SocketChannel> 
                 int handshake = -1;
 
                 try {
+                    if (proxyProtocol != NioProxyProtocol.ConfigEnum.OFF) {
+                        socket.handleProxyProtocol(proxyProtocol == NioProxyProtocol.ConfigEnum.ON);
+                    }
                     if (key != null) {
                         if (socket.isHandshakeComplete()) {
                             // No TLS handshaking required. Let the handler

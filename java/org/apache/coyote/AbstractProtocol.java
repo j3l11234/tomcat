@@ -743,6 +743,11 @@ public abstract class AbstractProtocol<S> implements ProtocolHandler,
                     register(processor);
                 }
 
+                if (processor instanceof AbstractProcessor) {
+                    AbstractProcessor abstractProcessor = (AbstractProcessor)processor;
+                    abstractProcessor.setProxyProtocolInfo(getProtocol().getEndpoint(), socket);
+                }
+
                 processor.setSslSupport(
                         wrapper.getSslSupport(getProtocol().getClientCertProvider()));
 

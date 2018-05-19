@@ -18,6 +18,7 @@ package org.apache.coyote.http11;
 
 import org.apache.juli.logging.Log;
 import org.apache.juli.logging.LogFactory;
+import org.apache.tomcat.util.net.AbstractEndpoint;
 import org.apache.tomcat.util.net.NioChannel;
 import org.apache.tomcat.util.net.NioEndpoint;
 
@@ -44,6 +45,21 @@ public class Http11NioProtocol extends AbstractHttp11JsseProtocol<NioChannel> {
     protected Log getLog() { return log; }
 
 
+    // ---------------------- Properties that are passed through to the EndPoint
+    public void setProxyProtocol(String proxyProtocol) {
+        AbstractEndpoint endpoint = getEndpoint();
+        if (endpoint instanceof NioEndpoint)
+        {
+            log.info("Initialized proxyProtocol=" + proxyProtocol);
+            ((NioEndpoint)endpoint).setProxyProtocol(proxyProtocol);
+        }
+        else
+        {
+            String strClass = (endpoint == null || endpoint.getClass() == null) ? "null" : endpoint.getClass().getCanonicalName();
+            log.warn("setProxyProtocol  unexpected endpoint class " + strClass);
+        }
+    }
+    
     // -------------------- Pool setup --------------------
 
     public void setPollerThreadCount(int count) {

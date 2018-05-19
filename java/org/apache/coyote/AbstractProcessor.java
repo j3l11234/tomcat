@@ -29,8 +29,13 @@ import org.apache.tomcat.util.ExceptionUtils;
 import org.apache.tomcat.util.buf.ByteChunk;
 import org.apache.tomcat.util.buf.MessageBytes;
 import org.apache.tomcat.util.http.parser.Host;
+import org.apache.tomcat.util.net.AbstractEndpoint;
 import org.apache.tomcat.util.net.AbstractEndpoint.Handler.SocketState;
 import org.apache.tomcat.util.net.DispatchType;
+import org.apache.tomcat.util.net.NioChannel;
+import org.apache.tomcat.util.net.NioEndpoint;
+import org.apache.tomcat.util.net.NioProxyProtocol;
+import org.apache.tomcat.util.net.ProxyProtocolInfo;
 import org.apache.tomcat.util.net.SSLSupport;
 import org.apache.tomcat.util.net.SocketEvent;
 import org.apache.tomcat.util.net.SocketWrapperBase;
@@ -55,6 +60,7 @@ public abstract class AbstractProcessor extends AbstractProcessorLight implement
     protected volatile SocketWrapperBase<?> socketWrapper = null;
     protected volatile SSLSupport sslSupport;
 
+    private String remoteIpHeader = "X-Forwarded-For";
 
     /**
      * Error state for the request/response currently being processed.
@@ -148,6 +154,25 @@ public abstract class AbstractProcessor extends AbstractProcessorLight implement
         return socketWrapper;
     }
 
+
+    public void setProxyProtocolInfo(AbstractEndpoint endpoint, Object socket) {
+        if (endpoint instanceof NioEndpoint && socket instanceof NioChannel && ((NioEndpoint)endpoint).getProxyProtocol() != NioProxyProtocol.ConfigEnum.OFF) {
+            NioChannel ch = (NioChannel)socket;
+            NioProxyProtocol proxyProtocol = ch.getProxyProtocol();
+            if (proxyProtocol != null) {
+                ProxyProtocolInfo proxyProtocolInfo = proxyProtocol.getProxyProtocolInfo();
+                if (proxyProtocolInfo != null) {
+                    request.setAttribute("ProxyProtocolInfo", proxyProtocolInfo);
+                    request.setAttribute("ProxyProtocolSourceAddress", proxyProtocolInfo.getSourceAddressAsString());
+                    
+                    // Add X-Forwarded-For if not exist
+                    if (request.getHeader(remoteIpHeader) == null) {
+                        request.getMimeHeaders().addValue(remoteIpHeader).setString(proxyProtocolInfo.getSourceAddressAsString());
+                    }
+                }
+            }
+        }
+    }
 
     @Override
     public final void setSslSupport(SSLSupport sslSupport) {

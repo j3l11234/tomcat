@@ -39,6 +39,8 @@ public class NioChannel implements ByteChannel {
 
     protected static final ByteBuffer emptyBuf = ByteBuffer.allocate(0);
 
+    protected NioProxyProtocol proxyProtocol;
+
     protected SocketChannel sc = null;
     protected SocketWrapperBase<NioChannel> socketWrapper = null;
 
@@ -58,6 +60,8 @@ public class NioChannel implements ByteChannel {
      */
     public void reset() throws IOException {
         bufHandler.reset();
+        if (proxyProtocol != null)
+        proxyProtocol.reset();
     }
 
 
@@ -144,7 +148,11 @@ public class NioChannel implements ByteChannel {
      */
     @Override
     public int read(ByteBuffer dst) throws IOException {
-        return sc.read(dst);
+        int readBytes = 0;
+        if (proxyProtocol != null)
+            readBytes += proxyProtocol.read(dst);
+        readBytes += sc.read(dst);
+        return readBytes;
     }
 
     public Object getAttachment() {
@@ -173,6 +181,30 @@ public class NioChannel implements ByteChannel {
 
     public boolean isHandshakeComplete() {
         return true;
+    }
+
+    public ByteBuffer getProxyProtocolBuffer() {
+        return proxyProtocol.getNetInBuffer();
+    }
+
+    public NioProxyProtocol getProxyProtocol() {
+        return proxyProtocol;
+    }
+
+    public void handleProxyProtocol(boolean bRequired) throws IOException {
+        if (proxyProtocol == null)
+            proxyProtocol = new NioProxyProtocol();
+        // Read the PROXY protocol header.
+        ByteBuffer inBuffer = getProxyProtocolBuffer();
+        if (inBuffer.position() == inBuffer.limit()) {
+            //clear the buffer if we have emptied it out on data
+            inBuffer.clear();
+        }
+        proxyProtocol.setReadFromSocket(true);
+        int bytesRead = sc.read(inBuffer);
+        if (bytesRead == -1)
+            throw new IOException("Encountered EOF while reading proxy protocol header.");
+        proxyProtocol.handleProxyProtocol(inBuffer, false, bRequired);
     }
 
     /**
